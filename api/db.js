@@ -1,8 +1,10 @@
 import { createClient } from 'redis';
 
-// Use the provided Redis URL. 
-// In a real production environment, it is recommended to move this to Vercel Environment Variables (REDIS_URL).
-const REDIS_URL = process.env.REDIS_URL || 'redis://default:OjbJUpZk6rWmKrpayVUVc5YwKU6Fy013@redis-19140.c98.us-east-1-4.ec2.cloud.redislabs.com:19140';
+// Support both standard Redis env vars (REDIS_URL) and Vercel KV defaults (KV_URL)
+// Fallback to the hardcoded Redis Labs URL if no environment variables are set
+const REDIS_URL = process.env.REDIS_URL || 
+                  process.env.KV_URL || 
+                  'redis://default:OjbJUpZk6rWmKrpayVUVc5YwKU6Fy013@redis-19140.c98.us-east-1-4.ec2.cloud.redislabs.com:19140';
 
 // Global client variable to allow connection reuse across function invocations in Vercel
 let client;
@@ -12,7 +14,9 @@ async function getRedisClient() {
     client = createClient({
       url: REDIS_URL,
       socket: {
-        connectTimeout: 10000 // 10 seconds timeout
+        connectTimeout: 10000, // 10 seconds timeout
+        // Auto-detect if TLS is needed (for rediss:// URLs which Vercel KV uses)
+        tls: REDIS_URL.startsWith('rediss://')
       }
     });
 
