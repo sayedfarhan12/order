@@ -92,9 +92,10 @@ function App() {
         setConnectionStatus('local');
       } else {
         setConnectionStatus('error');
-        if (result.error) {
-             setErrorMessage(result.error.message || "فشل الاتصال");
-        }
+        const errorMsg = result.error && typeof result.error === 'object' && 'message' in result.error 
+            ? (result.error as any).message 
+            : "فشل الاتصال";
+        setErrorMessage(errorMsg);
       }
       
       setLoading(false);
@@ -395,7 +396,7 @@ function App() {
         </nav>
 
         <div className="absolute bottom-0 w-full p-6 text-center text-xs text-gray-400">
-          إصدار 2.4 (Vercel Route Fix)
+          إصدار 2.5 (Vercel Build Fix)
         </div>
       </aside>
 

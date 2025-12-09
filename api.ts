@@ -1,7 +1,17 @@
 import { Order, OrderItem, AppConfig } from './types';
 
+export interface ApiResponse {
+  status: 'connected' | 'local' | 'error';
+  data: {
+    orders?: Order[];
+    items?: OrderItem[];
+    config?: AppConfig;
+  } | null;
+  error: any | null;
+}
+
 export const CloudService = {
-  async fetchData() {
+  async fetchData(): Promise<ApiResponse> {
     try {
       const response = await fetch('/api/db');
       
@@ -15,7 +25,7 @@ export const CloudService = {
           console.error("API Route not found on Vercel. Check vercel.json");
           throw new Error("Configuration Error: API Route Not Found");
         }
-        return { status: 'local', data: null };
+        return { status: 'local', data: null, error: null };
       }
 
       if (!response.ok) {
@@ -23,10 +33,10 @@ export const CloudService = {
       }
 
       const data = await response.json();
-      return { status: 'connected', data };
+      return { status: 'connected', data, error: null };
     } catch (error) {
       console.warn("Cloud fetch failed:", error);
-      return { status: 'error', error };
+      return { status: 'error', data: null, error };
     }
   },
 
