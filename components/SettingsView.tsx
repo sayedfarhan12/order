@@ -32,7 +32,7 @@ const ListManager: React.FC<ListManagerProps> = ({
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full">
+    <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full">
       <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">{title}</h3>
       
       {/* List */}
@@ -165,20 +165,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="p-6 h-full overflow-y-auto custom-scrollbar animate-fade-in pb-20">
-      <div className="flex items-center gap-3 mb-8">
+    <div className="p-4 md:p-6 h-full overflow-y-auto custom-scrollbar animate-fade-in pb-20">
+      <div className="flex items-center gap-3 mb-6 md:mb-8">
         <div className="bg-slate-800 p-2 rounded-lg text-white">
           <SettingsIcon size={24} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">إعدادات التطبيق</h2>
-          <p className="text-gray-500">إدارة البيانات، النسخ الاحتياطي، والربط السحابي (Vercel)</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800">إعدادات التطبيق</h2>
+          <p className="text-xs md:text-sm text-gray-500">إدارة البيانات، النسخ الاحتياطي، والربط السحابي</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
         {/* Backup & Restore Section */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden">
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1 h-full bg-gradient-to-b from-emerald-400 to-green-600"></div>
           <div className="flex items-center gap-2 mb-4 text-emerald-700">
             <FileJson size={24} />
@@ -188,7 +188,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
              حفظ البيانات كملف على جهازك للأمان أو لنقلها.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
             <button 
               onClick={onExportData}
               className="flex-1 flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg hover:bg-emerald-100 transition-colors font-bold"
@@ -214,7 +214,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Vercel KV Info */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 relative overflow-hidden">
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-blue-100 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
           <div className="flex items-center gap-2 mb-4 text-blue-800">
             <Cloud size={24} />

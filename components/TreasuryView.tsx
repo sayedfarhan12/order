@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../types';
-import { Wallet, ArrowUpCircle, ArrowDownCircle, Plus, Trash2, Edit2, Calendar, TrendingUp, TrendingDown, Save, X } from 'lucide-react';
+import { Wallet, ArrowUpCircle, ArrowDownCircle, Plus, Trash2, Edit2, TrendingUp, TrendingDown, Save, X, AlertTriangle } from 'lucide-react';
 
 interface TreasuryViewProps {
   transactions: Transaction[];
@@ -17,6 +17,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
 }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   
   // Form State
   const [formData, setFormData] = useState<{
@@ -90,61 +91,81 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
     setIsFormOpen(false);
   };
 
+  const handleDeleteClick = (id: string) => {
+    setDeleteConfirmationId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmationId) {
+      onDeleteTransaction(deleteConfirmationId);
+      if (editingId === deleteConfirmationId) {
+        resetForm();
+      }
+      setDeleteConfirmationId(null);
+    }
+  };
+
   // Sort transactions by date descending
   const sortedTransactions = [...transactions].sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
   return (
-    <div className="p-6 space-y-6 h-full flex flex-col overflow-hidden animate-fade-in">
-      <div className="flex justify-between items-center mb-2 flex-shrink-0">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Wallet className="text-blue-600" />
-          الخزينة (Treasury)
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 h-full flex flex-col overflow-hidden animate-fade-in bg-slate-50">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center flex-shrink-0">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <Wallet className="text-blue-600" size={24} />
+          <span>الخزينة</span>
         </h2>
         <button
           onClick={() => setIsFormOpen(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-bold shadow-sm"
+          className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-bold shadow-sm text-sm md:text-base"
         >
-          <Plus size={20} />
-          تسجيل بند جديد
+          <Plus size={18} />
+          <span className="hidden sm:inline">تسجيل بند جديد</span>
+          <span className="inline sm:hidden">جديد</span>
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 flex-shrink-0">
+        {/* Balance */}
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500 font-medium mb-1">الرصيد الحالي</p>
-            <p className={`text-3xl font-bold font-mono ${stats.balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-              {stats.balance.toLocaleString()} ج.م
+            <p className="text-xs md:text-sm text-gray-500 font-medium mb-1">الرصيد الحالي</p>
+            <p className={`text-2xl md:text-3xl font-bold font-mono ${stats.balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+              {stats.balance.toLocaleString()} <span className="text-sm">ج.م</span>
             </p>
           </div>
-          <div className={`p-3 rounded-full ${stats.balance >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+          <div className={`p-2 md:p-3 rounded-full ${stats.balance >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
             <Wallet size={28} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        {/* Income */}
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500 font-medium mb-1">إجمالي الوارد (بيع)</p>
-            <p className="text-2xl font-bold text-emerald-600 font-mono">
+            <p className="text-xs md:text-sm text-gray-500 font-medium mb-1">إجمالي الوارد (بيع)</p>
+            <p className="text-xl md:text-2xl font-bold text-emerald-600 font-mono">
               +{stats.totalIncome.toLocaleString()}
             </p>
           </div>
-          <div className="p-3 bg-emerald-50 rounded-full text-emerald-600">
+          <div className="p-2 md:p-3 bg-emerald-50 rounded-full text-emerald-600">
             <TrendingUp size={24} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        {/* Expense */}
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500 font-medium mb-1">إجمالي الصادر (شراء)</p>
-            <p className="text-2xl font-bold text-red-600 font-mono">
+            <p className="text-xs md:text-sm text-gray-500 font-medium mb-1">إجمالي الصادر (شراء)</p>
+            <p className="text-xl md:text-2xl font-bold text-red-600 font-mono">
               -{stats.totalExpense.toLocaleString()}
             </p>
           </div>
-          <div className="p-3 bg-red-50 rounded-full text-red-600">
+          <div className="p-2 md:p-3 bg-red-50 rounded-full text-red-600">
             <TrendingDown size={24} />
           </div>
         </div>
@@ -163,7 +184,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
               <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
                 <button
                   type="button"
@@ -175,7 +196,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                   }`}
                 >
                   <ArrowUpCircle size={16} />
-                  وارد (بيع)
+                  وارد
                 </button>
                 <button
                   type="button"
@@ -187,7 +208,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                   }`}
                 >
                   <ArrowDownCircle size={16} />
-                  صادر (شراء/مصروفات)
+                  صادر
                 </button>
               </div>
 
@@ -213,7 +234,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                   className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="مثال: فاتورة كهرباء، بيع مباشر..."
+                  placeholder="مثال: فاتورة كهرباء..."
                 />
               </div>
 
@@ -242,9 +263,38 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
         </div>
       )}
 
-      {/* Transactions Table */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-0">
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmationId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center">
+             <div className="bg-red-100 p-4 rounded-full text-red-600 mb-4 shadow-sm">
+                <AlertTriangle size={32} />
+             </div>
+             <h3 className="text-xl font-bold text-gray-900 mb-2">تأكيد الحذف</h3>
+             <p className="text-gray-600 mb-6 text-sm">
+                هل أنت متأكد من حذف هذا البند من الخزينة؟
+             </p>
+             <div className="flex gap-3 w-full">
+                <button 
+                  onClick={() => setDeleteConfirmationId(null)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-md shadow-red-200"
+                >
+                  حذف
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transactions List */}
+      <div className="flex-1 bg-white/50 md:bg-white rounded-xl md:shadow-sm md:border md:border-gray-200 overflow-hidden flex flex-col min-h-0">
+        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center hidden md:flex">
           <h3 className="font-bold text-gray-700">سجل المعاملات</h3>
           <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
             {transactions.length} عملية
@@ -258,73 +308,112 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
               <p>لا توجد معاملات مسجلة بعد</p>
             </div>
           ) : (
-            <table className="w-full text-sm text-right">
-              <thead className="bg-gray-50 text-gray-600 font-medium sticky top-0 shadow-sm z-10">
-                <tr>
-                  <th className="px-6 py-3">النوع</th>
-                  <th className="px-6 py-3">الوصف</th>
-                  <th className="px-6 py-3 text-center">التاريخ</th>
-                  <th className="px-6 py-3 text-left">المبلغ</th>
-                  <th className="px-6 py-3 text-center">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sortedTransactions.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                        item.type === 'income' 
-                          ? 'bg-emerald-100 text-emerald-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {item.type === 'income' ? <ArrowUpCircle size={14} /> : <ArrowDownCircle size={14} />}
-                        {item.type === 'income' ? 'وارد' : 'صادر'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 font-medium text-gray-800">{item.description}</td>
-                    <td className="px-6 py-3 text-center text-gray-500 font-mono text-xs">
-                      {item.date}
-                    </td>
-                    <td className={`px-6 py-3 text-left font-mono font-bold text-base ${
-                      item.type === 'income' ? 'text-emerald-600' : 'text-red-600'
-                    }`}>
-                      {item.type === 'expense' ? '-' : '+'}{item.amount.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(item);
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="تعديل"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if(window.confirm('هل أنت متأكد من حذف هذا البند؟')) {
-                              onDeleteTransaction(item.id);
-                              if (editingId === item.id) {
-                                resetForm();
-                              }
-                            }
-                          }}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="حذف"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+            <>
+              {/* Desktop View: Table */}
+              <table className="w-full text-sm text-right hidden md:table">
+                <thead className="bg-gray-50 text-gray-600 font-medium sticky top-0 shadow-sm z-10">
+                  <tr>
+                    <th className="px-6 py-3">النوع</th>
+                    <th className="px-6 py-3">الوصف</th>
+                    <th className="px-6 py-3 text-center">التاريخ</th>
+                    <th className="px-6 py-3 text-left">المبلغ</th>
+                    <th className="px-6 py-3 text-center">إجراءات</th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {sortedTransactions.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                      <td className="px-6 py-3">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                          item.type === 'income' 
+                            ? 'bg-emerald-100 text-emerald-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {item.type === 'income' ? <ArrowUpCircle size={14} /> : <ArrowDownCircle size={14} />}
+                          {item.type === 'income' ? 'وارد' : 'صادر'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 font-medium text-gray-800">{item.description}</td>
+                      <td className="px-6 py-3 text-center text-gray-500 font-mono text-xs">
+                        {item.date}
+                      </td>
+                      <td className={`px-6 py-3 text-left font-mono font-bold text-base ${
+                        item.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                      }`}>
+                        {item.type === 'expense' ? '-' : '+'}{item.amount.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="تعديل"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(item.id);
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="حذف"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile View: Cards */}
+              <div className="md:hidden space-y-3 pb-20">
+                {sortedTransactions.map((item) => (
+                  <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                     <div className="flex justify-between items-start mb-2">
+                       <div className="flex items-center gap-2">
+                          <span className={`p-1.5 rounded-full ${
+                            item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {item.type === 'income' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
+                          </span>
+                          <div>
+                            <h4 className="font-bold text-gray-800 text-sm">{item.description}</h4>
+                            <span className="text-xs text-gray-500 block">{item.date}</span>
+                          </div>
+                       </div>
+                       <div className={`font-mono font-bold text-lg ${
+                          item.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                        }`}>
+                          {item.type === 'expense' ? '-' : '+'}{item.amount.toLocaleString()}
+                       </div>
+                     </div>
+                     
+                     <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-50">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg"
+                        >
+                          <Edit2 size={14} /> تعديل
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(item.id)}
+                          className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg"
+                        >
+                          <Trash2 size={14} /> حذف
+                        </button>
+                     </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </div>
