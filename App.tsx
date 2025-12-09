@@ -30,6 +30,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('loading');
+  const [errorMessage, setErrorMessage] = useState<string>("");
   
   // Configuration State
   const [appConfig, setAppConfig] = useState<AppConfig>(() => {
@@ -86,11 +87,14 @@ function App() {
         if (result.data.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(result.data.config));
         
         setConnectionStatus('connected');
+        setErrorMessage("");
       } else if (result.status === 'local') {
         setConnectionStatus('local');
       } else {
-        // Even if initial fetch fails, we might still be able to save later
         setConnectionStatus('error');
+        if (result.error) {
+             setErrorMessage(result.error.message || "فشل الاتصال");
+        }
       }
       
       setLoading(false);
@@ -108,18 +112,18 @@ function App() {
         localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(appConfig));
 
         // Sync to Cloud
-        // Only skip if we are explicitly in 'local' mode (localhost development)
         if (orders.length > 0 && connectionStatus !== 'local' && connectionStatus !== 'loading') {
             try {
-                // Don't set 'syncing' state here to avoid UI flickering on every keystroke
                 await CloudService.saveData(orders, orderItems, appConfig);
                 setConnectionStatus('connected');
+                setErrorMessage("");
             } catch (e: any) {
                 if (e.message === 'Local Mode') {
                    setConnectionStatus('local');
                 } else {
                    console.warn("Background sync failed");
                    setConnectionStatus('error');
+                   setErrorMessage("فشل الحفظ التلقائي");
                 }
             }
         }
@@ -136,11 +140,13 @@ function App() {
     try {
       await CloudService.saveData(orders, orderItems, appConfig);
       setConnectionStatus('connected');
+      setErrorMessage("");
       alert('تم رفع البيانات للسحابة بنجاح! يمكنك الآن فتح التطبيق من جهاز آخر.');
     } catch (e: any) {
       console.error(e);
       setConnectionStatus('error');
-      alert('فشل الاتصال بالسحابة. تأكد من اتصال الإنترنت وحاول مرة أخرى.');
+      setErrorMessage(e.message || "فشل المزامنة");
+      alert(`فشل الاتصال بالسحابة: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -190,9 +196,11 @@ function App() {
             data.config || appConfig
           );
           setConnectionStatus('connected');
-        } catch (e) {
+          setErrorMessage("");
+        } catch (e: any) {
           console.warn("Cloud sync failed during import");
           setConnectionStatus('error');
+          setErrorMessage("فشل الحفظ بعد الاستيراد");
         }
       }
 
@@ -337,9 +345,9 @@ function App() {
     }
     if (connectionStatus === 'error') {
       return (
-        <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-red-50 text-red-700 border-red-200 animate-pulse cursor-pointer" onClick={() => alert('هناك مشكلة في الاتصال بقاعدة البيانات. البيانات محفوظة على هذا الجهاز فقط ولم يتم رفعها للسحابة.')} title="يوجد مشكلة في الاتصال. اضغط للمزيد">
+        <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-red-50 text-red-700 border-red-200 animate-pulse cursor-pointer" onClick={() => alert(errorMessage || 'تأكد من إعدادات مشروع Vercel وربط KV Database')} title={errorMessage || "يوجد مشكلة في الاتصال"}>
            <AlertCircle size={14} />
-           <span className="hidden sm:inline">خطأ اتصال (غير محفوظ سحابياً)</span>
+           <span className="hidden sm:inline">{errorMessage ? `خطأ: ${errorMessage}` : 'خطأ اتصال'}</span>
         </div>
       );
     }
@@ -387,7 +395,7 @@ function App() {
         </nav>
 
         <div className="absolute bottom-0 w-full p-6 text-center text-xs text-gray-400">
-          إصدار 2.3 (Sync Fix)
+          إصدار 2.4 (Vercel Route Fix)
         </div>
       </aside>
 

@@ -5,8 +5,16 @@ export const CloudService = {
     try {
       const response = await fetch('/api/db');
       
-      // Handle Local Environment (Vite dev server usually returns 404 or HTML for unknown routes)
+      const isVercel = window.location.hostname.includes('vercel.app');
+
+      // Handle 404:
+      // If on Vercel/Production, 404 means the API route is broken/missing -> Error
+      // If on Localhost, 404 means we are just developing locally -> Local Mode
       if (response.status === 404 || response.headers.get('content-type')?.includes('text/html')) {
+        if (isVercel) {
+          console.error("API Route not found on Vercel. Check vercel.json");
+          throw new Error("Configuration Error: API Route Not Found");
+        }
         return { status: 'local', data: null };
       }
 
@@ -32,7 +40,12 @@ export const CloudService = {
         body: JSON.stringify({ orders, items, config })
       });
 
-      if (response.status === 404) throw new Error('Local Mode');
+      if (response.status === 404) {
+         const isVercel = window.location.hostname.includes('vercel.app');
+         if (isVercel) throw new Error('API Route Missing');
+         throw new Error('Local Mode');
+      }
+      
       if (!response.ok) throw new Error('Failed to save to Vercel Cloud');
       
       return await response.json();
