@@ -69,3 +69,11 @@ export interface AppConfig {
   productTypes: string[];
   productSizes: string[];
 }
+
+export interface Transaction {
+  id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  description: string;
+  date: string;
+}

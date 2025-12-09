@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, RefreshCw, Loader2, Cloud, Download, CloudOff, AlertCircle, RefreshCcw } from 'lucide-react';
-import { INITIAL_ORDERS, INITIAL_ORDER_ITEMS } from './constants';
-import { Order, OrderItem, NewOrderForm, AppConfig, OrderStatus, OrderSource, ProductType, ProductSize } from './types';
+import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, RefreshCw, Loader2, Cloud, Download, CloudOff, AlertCircle, RefreshCcw, Wallet } from 'lucide-react';
+import { INITIAL_ORDERS, INITIAL_ORDER_ITEMS, INITIAL_TRANSACTIONS } from './constants';
+import { Order, OrderItem, NewOrderForm, AppConfig, OrderStatus, OrderSource, ProductType, ProductSize, Transaction } from './types';
 import { Dashboard } from './components/Dashboard';
 import { OrdersView } from './components/OrdersView';
 import { OrderForm } from './components/OrderForm';
 import { SettingsView } from './components/SettingsView';
+import { TreasuryView } from './components/TreasuryView';
 import { CloudService } from './api';
 
 // Simple Router enum
@@ -13,6 +14,7 @@ enum Route {
   DASHBOARD = 'dashboard',
   ORDERS = 'orders',
   NEW_ORDER = 'new-order',
+  TREASURY = 'treasury',
   SETTINGS = 'settings'
 }
 
@@ -20,7 +22,8 @@ enum Route {
 const STORAGE_KEYS = {
   ORDERS: 'happy_store_orders',
   ITEMS: 'happy_store_items',
-  CONFIG: 'happy_store_config'
+  CONFIG: 'happy_store_config',
+  TRANSACTIONS: 'happy_store_transactions'
 };
 
 type ConnectionStatus = 'loading' | 'connected' | 'local' | 'error' | 'syncing';
@@ -55,6 +58,7 @@ function App() {
   // Data State
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // 1. Initial Load
   useEffect(() => {
@@ -64,11 +68,17 @@ function App() {
       try {
         const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
         const savedItems = localStorage.getItem(STORAGE_KEYS.ITEMS);
+        const savedTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+        
         if (savedOrders) setOrders(JSON.parse(savedOrders));
         else setOrders(INITIAL_ORDERS);
         
         if (savedItems) setOrderItems(JSON.parse(savedItems));
         else setOrderItems(INITIAL_ORDER_ITEMS);
+
+        if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+        else setTransactions(INITIAL_TRANSACTIONS);
+
       } catch (e) {
         console.error("Local load error", e);
       }
@@ -80,10 +90,12 @@ function App() {
         if (result.data.orders) setOrders(result.data.orders);
         if (result.data.items) setOrderItems(result.data.items);
         if (result.data.config) setAppConfig(result.data.config);
+        if (result.data.transactions) setTransactions(result.data.transactions);
         
         // Sync to local
         localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(result.data.orders || []));
         localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(result.data.items || []));
+        localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(result.data.transactions || []));
         if (result.data.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(result.data.config));
         
         setConnectionStatus('connected');
@@ -111,11 +123,12 @@ function App() {
         localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
         localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(orderItems));
         localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(appConfig));
+        localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
 
         // Sync to Cloud
-        if (orders.length > 0 && connectionStatus !== 'local' && connectionStatus !== 'loading') {
+        if (connectionStatus !== 'local' && connectionStatus !== 'loading') {
             try {
-                await CloudService.saveData(orders, orderItems, appConfig);
+                await CloudService.saveData(orders, orderItems, appConfig, transactions);
                 setConnectionStatus('connected');
                 setErrorMessage("");
             } catch (e: any) {
@@ -133,13 +146,13 @@ function App() {
     // Debounce to prevent too many requests
     const timeout = setTimeout(saveData, 2000);
     return () => clearTimeout(timeout);
-  }, [orders, orderItems, appConfig, connectionStatus]);
+  }, [orders, orderItems, appConfig, transactions, connectionStatus]);
 
   // Manual Sync Function
   const handleForceSync = async () => {
     setLoading(true);
     try {
-      await CloudService.saveData(orders, orderItems, appConfig);
+      await CloudService.saveData(orders, orderItems, appConfig, transactions);
       setConnectionStatus('connected');
       setErrorMessage("");
       alert('تم رفع البيانات للسحابة بنجاح! يمكنك الآن فتح التطبيق من جهاز آخر.');
@@ -163,7 +176,8 @@ function App() {
       timestamp: new Date().toISOString(),
       orders,
       items: orderItems,
-      config: appConfig
+      config: appConfig,
+      transactions
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -182,10 +196,12 @@ function App() {
       if (data.orders) setOrders(data.orders);
       if (data.items) setOrderItems(data.items);
       if (data.config) setAppConfig(data.config);
+      if (data.transactions) setTransactions(data.transactions);
       
       // Force Local Save
       localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(data.orders || []));
       localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(data.items || []));
+      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(data.transactions || []));
       if(data.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(data.config));
 
       // Force Cloud Save
@@ -194,7 +210,8 @@ function App() {
           await CloudService.saveData(
             data.orders || [], 
             data.items || [], 
-            data.config || appConfig
+            data.config || appConfig,
+            data.transactions || []
           );
           setConnectionStatus('connected');
           setErrorMessage("");
@@ -315,6 +332,19 @@ function App() {
     setActiveRoute(Route.NEW_ORDER);
   };
 
+  // Treasury Handlers
+  const handleAddTransaction = (transaction: Transaction) => {
+    setTransactions(prev => [transaction, ...prev]);
+  };
+
+  const handleUpdateTransaction = (updatedTransaction: Transaction) => {
+    setTransactions(prev => prev.map(t => t.id === updatedTransaction.id ? updatedTransaction : t));
+  };
+
+  const handleDeleteTransaction = (id: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
   const NavItem = ({ route, icon: Icon, label }: { route: Route, icon: any, label: string }) => (
     <button
       onClick={() => {
@@ -392,11 +422,12 @@ function App() {
           <NavItem route={Route.DASHBOARD} icon={LayoutDashboard} label="لوحة التحكم" />
           <NavItem route={Route.ORDERS} icon={List} label="الأوردرات" />
           <NavItem route={Route.NEW_ORDER} icon={PlusCircle} label={editingId ? "تعديل أوردر" : "إضافة أوردر"} />
+          <NavItem route={Route.TREASURY} icon={Wallet} label="الخزينة" />
           <NavItem route={Route.SETTINGS} icon={SettingsIcon} label="الإعدادات" />
         </nav>
 
         <div className="absolute bottom-0 w-full p-6 text-center text-xs text-gray-400">
-          إصدار 2.5 (Vercel Build Fix)
+          إصدار 2.6 (Treasury Added)
         </div>
       </aside>
 
@@ -468,6 +499,14 @@ function App() {
               initialData={editFormData}
               isEditing={!!editingId}
               config={appConfig}
+            />
+          )}
+          {activeRoute === Route.TREASURY && (
+            <TreasuryView 
+              transactions={transactions}
+              onAddTransaction={handleAddTransaction}
+              onUpdateTransaction={handleUpdateTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
             />
           )}
           {activeRoute === Route.SETTINGS && (

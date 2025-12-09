@@ -1,4 +1,4 @@
-import { Order, OrderItem, AppConfig } from './types';
+import { Order, OrderItem, AppConfig, Transaction } from './types';
 
 export interface ApiResponse {
   status: 'connected' | 'local' | 'error';
@@ -6,6 +6,7 @@ export interface ApiResponse {
     orders?: Order[];
     items?: OrderItem[];
     config?: AppConfig;
+    transactions?: Transaction[];
   } | null;
   error: any | null;
 }
@@ -40,14 +41,14 @@ export const CloudService = {
     }
   },
 
-  async saveData(orders: Order[], items: OrderItem[], config: AppConfig) {
+  async saveData(orders: Order[], items: OrderItem[], config: AppConfig, transactions: Transaction[]) {
     try {
       const response = await fetch('/api/db', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ orders, items, config })
+        body: JSON.stringify({ orders, items, config, transactions })
       });
 
       if (response.status === 404) {

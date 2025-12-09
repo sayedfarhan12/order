@@ -1,4 +1,4 @@
-import { Order, OrderItem, OrderSource, OrderStatus, ProductSize, ProductType } from "./types";
+import { Order, OrderItem, OrderSource, OrderStatus, ProductSize, ProductType, Transaction } from "./types";
 
 export const INITIAL_ORDERS: Order[] = [
   {
@@ -50,3 +50,5 @@ export const INITIAL_ORDER_ITEMS: OrderItem[] = [
   { id: "item-4", orderId: "1003", type: ProductType.SWEATSHIRT, color: "كحلي", size: ProductSize.XL, quantity: 1, price: 350 },
   { id: "item-5", orderId: "1004", type: ProductType.HOODIE, color: "رمادي", size: ProductSize.XXL, quantity: 1, price: 500 },
 ];
+
+export const INITIAL_TRANSACTIONS: Transaction[] = [];
