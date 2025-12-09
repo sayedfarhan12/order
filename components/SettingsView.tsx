@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, X, Settings as SettingsIcon, Trash2, Check, Cloud, Download, Upload, FileJson, AlertCircle } from 'lucide-react';
+import { Plus, X, Settings as SettingsIcon, Trash2, Check, Cloud, Download, Upload, FileJson } from 'lucide-react';
 import { AppConfig, Order, OrderItem } from '../types';
 
 interface ListManagerProps {
@@ -119,14 +119,14 @@ interface SettingsViewProps {
   orders: Order[];
   orderItems: OrderItem[];
   onImportData: (data: any) => void;
+  onExportData: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
   config, 
   onUpdateConfig,
-  orders,
-  orderItems,
-  onImportData
+  onImportData,
+  onExportData
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -135,25 +135,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ...config,
       [key]: newList
     });
-  };
-
-  const handleExportData = () => {
-    const data = {
-      version: "1.0",
-      timestamp: new Date().toISOString(),
-      orders,
-      items: orderItems,
-      config
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `happy-store-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const handleImportClick = () => {
@@ -209,7 +190,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="flex flex-col sm:flex-row gap-4">
             <button 
-              onClick={handleExportData}
+              onClick={onExportData}
               className="flex-1 flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg hover:bg-emerald-100 transition-colors font-bold"
             >
               <Download size={20} />

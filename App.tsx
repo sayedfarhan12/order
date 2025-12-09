@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, RefreshCw, Loader2, Cloud } from 'lucide-react';
+import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, RefreshCw, Loader2, Cloud, Download, CloudOff, AlertCircle } from 'lucide-react';
 import { INITIAL_ORDERS, INITIAL_ORDER_ITEMS } from './constants';
 import { Order, OrderItem, NewOrderForm, AppConfig, OrderStatus, OrderSource, ProductType, ProductSize } from './types';
 import { Dashboard } from './components/Dashboard';
@@ -23,11 +23,13 @@ const STORAGE_KEYS = {
   CONFIG: 'happy_store_config'
 };
 
+type ConnectionStatus = 'loading' | 'connected' | 'local' | 'error';
+
 function App() {
   const [activeRoute, setActiveRoute] = useState<Route>(Route.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isCloudConnected, setIsCloudConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('loading');
   
   // Configuration State
   const [appConfig, setAppConfig] = useState<AppConfig>(() => {
@@ -53,11 +55,11 @@ function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
 
-  // 1. Initial Load (Try Cloud, fallback to Local)
+  // 1. Initial Load
   useEffect(() => {
     const initData = async () => {
       setLoading(true);
-      // First load local data to show something immediately
+      // Load Local Data First
       try {
         const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
         const savedItems = localStorage.getItem(STORAGE_KEYS.ITEMS);
@@ -70,32 +72,33 @@ function App() {
         console.error("Local load error", e);
       }
 
-      // Then try to fetch from Cloud
-      try {
-        const cloudData = await CloudService.fetchData();
-        if (cloudData) {
-          if (cloudData.orders) setOrders(cloudData.orders);
-          if (cloudData.items) setOrderItems(cloudData.items);
-          if (cloudData.config) setAppConfig(cloudData.config);
-          setIsCloudConnected(true);
-          
-          // Update local cache
-          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cloudData.orders || []));
-          localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(cloudData.items || []));
-          if (cloudData.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(cloudData.config));
-        }
-      } catch (error) {
-        console.warn("Cloud not available");
-        setIsCloudConnected(false);
-      } finally {
-        setLoading(false);
+      // Try Cloud Fetch
+      const result = await CloudService.fetchData();
+      
+      if (result.status === 'connected' && result.data) {
+        if (result.data.orders) setOrders(result.data.orders);
+        if (result.data.items) setOrderItems(result.data.items);
+        if (result.data.config) setAppConfig(result.data.config);
+        
+        // Sync to local
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(result.data.orders || []));
+        localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(result.data.items || []));
+        if (result.data.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(result.data.config));
+        
+        setConnectionStatus('connected');
+      } else if (result.status === 'local') {
+        setConnectionStatus('local');
+      } else {
+        setConnectionStatus('error');
       }
+      
+      setLoading(false);
     };
 
     initData();
   }, []);
 
-  // 2. Persist to Cloud & Local on changes
+  // 2. Persist on changes
   useEffect(() => {
     const saveData = async () => {
         // Save to Local
@@ -103,33 +106,84 @@ function App() {
         localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(orderItems));
         localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(appConfig));
 
-        // Sync to Cloud (Debounced or immediate)
-        if (orders.length > 0) {
+        // Sync to Cloud if connected
+        if (orders.length > 0 && connectionStatus !== 'local') {
             try {
                 await CloudService.saveData(orders, orderItems, appConfig);
-                setIsCloudConnected(true);
-            } catch (e) {
-                console.warn("Background sync failed");
-                setIsCloudConnected(false);
+                setConnectionStatus('connected');
+            } catch (e: any) {
+                if (e.message === 'Local Mode') {
+                   setConnectionStatus('local');
+                } else {
+                   console.warn("Sync failed");
+                   setConnectionStatus('error');
+                }
             }
         }
     };
     
-    // Simple debounce could be added here, but for now we save on change
     const timeout = setTimeout(saveData, 1000);
     return () => clearTimeout(timeout);
-  }, [orders, orderItems, appConfig]);
+  }, [orders, orderItems, appConfig, connectionStatus]);
 
   // Edit State
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<NewOrderForm | undefined>(undefined);
 
-  const handleImportData = (data: any) => {
-    if (data.orders) setOrders(data.orders);
-    if (data.items) setOrderItems(data.items);
-    if (data.config) setAppConfig(data.config);
-    alert('تم استعادة البيانات بنجاح!');
-    setActiveRoute(Route.DASHBOARD);
+  const handleExportData = () => {
+    const data = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      orders,
+      items: orderItems,
+      config: appConfig
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `happy-store-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportData = async (data: any) => {
+    setLoading(true);
+    try {
+      if (data.orders) setOrders(data.orders);
+      if (data.items) setOrderItems(data.items);
+      if (data.config) setAppConfig(data.config);
+      
+      // Force Local Save
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(data.orders || []));
+      localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(data.items || []));
+      if(data.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(data.config));
+
+      // Force Cloud Save
+      if (connectionStatus !== 'local') {
+        try {
+          await CloudService.saveData(
+            data.orders || [], 
+            data.items || [], 
+            data.config || appConfig
+          );
+          setConnectionStatus('connected');
+        } catch (e) {
+          console.warn("Cloud sync failed during import");
+          setConnectionStatus('error');
+        }
+      }
+
+      alert('تم استعادة البيانات بنجاح!');
+      setActiveRoute(Route.DASHBOARD);
+    } catch (error) {
+      console.error("Import error", error);
+      alert("حدث خطأ أثناء استعادة النسخة");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveOrder = async (formData: NewOrderForm) => {
@@ -252,6 +306,32 @@ function App() {
     </button>
   );
 
+  const StatusBadge = () => {
+    if (connectionStatus === 'connected') {
+      return (
+        <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-green-50 text-green-700 border-green-200" title="تم الربط بنجاح بقاعدة بيانات Vercel">
+           <Cloud size={14} />
+           <span className="hidden sm:inline">متصل بالسحابة</span>
+        </div>
+      );
+    }
+    if (connectionStatus === 'error') {
+      return (
+        <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-red-50 text-red-700 border-red-200" title="يوجد مشكلة في الاتصال بـ Vercel KV. تأكد من ربط قاعدة البيانات في لوحة التحكم">
+           <AlertCircle size={14} />
+           <span className="hidden sm:inline">خطأ اتصال</span>
+        </div>
+      );
+    }
+    // Local
+    return (
+      <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-orange-50 text-orange-700 border-orange-200" title="أنت تعمل في بيئة محلية. البيانات محفوظة على هذا الجهاز فقط">
+         <CloudOff size={14} />
+         <span className="hidden sm:inline">وضع محلي (جهازك)</span>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       
@@ -287,7 +367,7 @@ function App() {
         </nav>
 
         <div className="absolute bottom-0 w-full p-6 text-center text-xs text-gray-400">
-          إصدار 2.0 (Vercel Cloud)
+          إصدار 2.2 (Vercel Cloud Integration)
         </div>
       </aside>
 
@@ -297,7 +377,7 @@ function App() {
           <div className="absolute inset-0 bg-white/50 z-50 flex items-center justify-center backdrop-blur-sm">
              <div className="bg-white p-4 rounded-xl shadow-xl flex items-center gap-3">
                <Loader2 className="animate-spin text-blue-600" size={24} />
-               <span className="font-bold text-gray-700">جاري الاتصال...</span>
+               <span className="font-bold text-gray-700">جاري المعالجة...</span>
              </div>
           </div>
         )}
@@ -312,15 +392,22 @@ function App() {
           </button>
           
           <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border ${isCloudConnected ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-               <Cloud size={14} />
-               {isCloudConnected ? 'متصل بالسحابة' : 'محلي / غير متصل'}
-            </div>
+            
+            {/* Quick Export Button */}
+            <button 
+              onClick={handleExportData}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors border border-gray-300"
+              title="تنزيل نسخة احتياطية الآن"
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">نسخة احتياطية</span>
+            </button>
+
+            <StatusBadge />
 
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm border border-blue-200">
               S
             </div>
-            <span className="text-sm font-medium text-gray-700 hidden sm:block">Sayed Farhan</span>
           </div>
         </header>
 
@@ -352,6 +439,7 @@ function App() {
               orders={orders}
               orderItems={orderItems}
               onImportData={handleImportData}
+              onExportData={handleExportData}
             />
           )}
         </div>
