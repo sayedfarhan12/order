@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Plus, X, Settings as SettingsIcon, Trash2, Check } from 'lucide-react';
-import { AppConfig } from '../types';
+import React, { useState, useRef } from 'react';
+import { Plus, X, Settings as SettingsIcon, Trash2, Check, Cloud, Download, Upload, FileJson, AlertCircle } from 'lucide-react';
+import { AppConfig, Order, OrderItem } from '../types';
 
 interface ListManagerProps {
   title: string;
@@ -116,14 +116,71 @@ const ListManager: React.FC<ListManagerProps> = ({
 interface SettingsViewProps {
   config: AppConfig;
   onUpdateConfig: (newConfig: AppConfig) => void;
+  orders: Order[];
+  orderItems: OrderItem[];
+  onImportData: (data: any) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ config, onUpdateConfig }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ 
+  config, 
+  onUpdateConfig,
+  orders,
+  orderItems,
+  onImportData
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const updateList = (key: keyof AppConfig, newList: string[]) => {
     onUpdateConfig({
       ...config,
       [key]: newList
     });
+  };
+
+  const handleExportData = () => {
+    const data = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      orders,
+      items: orderItems,
+      config
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `happy-store-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.orders && json.items) {
+          if (window.confirm('سيتم استبدال جميع البيانات الحالية بالبيانات الموجودة في الملف. هل أنت متأكد؟')) {
+            onImportData(json);
+          }
+        } else {
+          alert('ملف غير صالح. تأكد من اختيار ملف النسخة الاحتياطية الصحيح.');
+        }
+      } catch (error) {
+        alert('حدث خطأ أثناء قراءة الملف.');
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -134,12 +191,69 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, onUpdateConf
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-800">إعدادات التطبيق</h2>
-          <p className="text-gray-500">إدارة القوائم والخيارات المتاحة في النظام</p>
+          <p className="text-gray-500">إدارة البيانات، النسخ الاحتياطي، والربط السحابي (Vercel)</p>
         </div>
       </div>
 
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+        {/* Backup & Restore Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-1 h-full bg-gradient-to-b from-emerald-400 to-green-600"></div>
+          <div className="flex items-center gap-2 mb-4 text-emerald-700">
+            <FileJson size={24} />
+            <h3 className="text-lg font-bold">النسخ الاحتياطي اليدوي</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-6">
+             حفظ البيانات كملف على جهازك للأمان أو لنقلها.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={handleExportData}
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg hover:bg-emerald-100 transition-colors font-bold"
+            >
+              <Download size={20} />
+              تحميل نسخة (Export)
+            </button>
+            <button 
+              onClick={handleImportClick}
+              className="flex-1 flex items-center justify-center gap-2 bg-gray-800 text-white p-3 rounded-lg hover:bg-gray-900 transition-colors font-bold shadow-lg shadow-gray-200"
+            >
+              <Upload size={20} />
+              استعادة نسخة (Import)
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              accept=".json" 
+              className="hidden" 
+            />
+          </div>
+        </div>
+
+        {/* Vercel KV Info */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+          <div className="flex items-center gap-2 mb-4 text-blue-800">
+            <Cloud size={24} />
+            <h3 className="text-lg font-bold">Vercel KV Storage</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-6">
+             التطبيق مرتبط الآن بقاعدة بيانات Vercel KV الداخلية. يتم حفظ البيانات تلقائياً.
+          </p>
+          
+          <div className="p-4 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100">
+            <div className="flex items-center gap-2 font-bold mb-2">
+               <Check size={16} /> حالة النظام:
+            </div>
+            يتم الاتصال بقاعدة البيانات تلقائياً عند وجود اتصال بالإنترنت. في حالة انقطاع الإنترنت، يتم الحفظ محلياً ثم المزامنة لاحقاً.
+          </div>
+        </div>
+      </div>
+
+      {/* Lists Configuration */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-        
         <ListManager 
           title="أنواع المنتجات" 
           items={config.productTypes} 
@@ -167,7 +281,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, onUpdateConf
           onAdd={(item) => updateList('statuses', [...config.statuses, item])}
           onRemove={(item) => updateList('statuses', config.statuses.filter(i => i !== item))}
         />
-        
       </div>
     </div>
   );

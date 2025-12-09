@@ -34,25 +34,25 @@ export const ProductSize = {
 export interface OrderItem {
   id: string;
   orderId: string;
-  type: string; // Changed from Enum to string for dynamic support
+  type: string;
   color: string;
-  size: string; // Changed from Enum to string for dynamic support
+  size: string;
   quantity: number;
   price: number;
 }
 
 export interface Order {
-  id: number; // Auto number
+  id: number;
   customerName: string;
   phone: string;
   address: string;
-  source: string; // Changed from Enum to string
-  status: string; // Changed from Enum to string
-  createdAt: string; // ISO String
+  source: string;
+  status: string;
+  createdAt: string;
   notes: string;
+  airtableRecordId?: string; // Kept for legacy compatibility if needed
 }
 
-// Helper type for the form
 export interface NewOrderForm {
   customerName: string;
   phone: string;
