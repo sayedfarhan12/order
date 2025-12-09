@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, RefreshCw, Loader2, Cloud, Download, CloudOff, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, RefreshCw, Loader2, Cloud, Download, CloudOff, AlertCircle, RefreshCcw } from 'lucide-react';
 import { INITIAL_ORDERS, INITIAL_ORDER_ITEMS } from './constants';
 import { Order, OrderItem, NewOrderForm, AppConfig, OrderStatus, OrderSource, ProductType, ProductSize } from './types';
 import { Dashboard } from './components/Dashboard';
@@ -23,7 +23,7 @@ const STORAGE_KEYS = {
   CONFIG: 'happy_store_config'
 };
 
-type ConnectionStatus = 'loading' | 'connected' | 'local' | 'error';
+type ConnectionStatus = 'loading' | 'connected' | 'local' | 'error' | 'syncing';
 
 function App() {
   const [activeRoute, setActiveRoute] = useState<Route>(Route.DASHBOARD);
@@ -89,6 +89,7 @@ function App() {
       } else if (result.status === 'local') {
         setConnectionStatus('local');
       } else {
+        // Even if initial fetch fails, we might still be able to save later
         setConnectionStatus('error');
       }
       
@@ -98,33 +99,52 @@ function App() {
     initData();
   }, []);
 
-  // 2. Persist on changes
+  // 2. Persist on changes (Auto-Save)
   useEffect(() => {
     const saveData = async () => {
-        // Save to Local
+        // Always Save to Local
         localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
         localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(orderItems));
         localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(appConfig));
 
-        // Sync to Cloud if connected
-        if (orders.length > 0 && connectionStatus !== 'local') {
+        // Sync to Cloud
+        // Only skip if we are explicitly in 'local' mode (localhost development)
+        if (orders.length > 0 && connectionStatus !== 'local' && connectionStatus !== 'loading') {
             try {
+                // Don't set 'syncing' state here to avoid UI flickering on every keystroke
                 await CloudService.saveData(orders, orderItems, appConfig);
                 setConnectionStatus('connected');
             } catch (e: any) {
                 if (e.message === 'Local Mode') {
                    setConnectionStatus('local');
                 } else {
-                   console.warn("Sync failed");
+                   console.warn("Background sync failed");
                    setConnectionStatus('error');
                 }
             }
         }
     };
     
-    const timeout = setTimeout(saveData, 1000);
+    // Debounce to prevent too many requests
+    const timeout = setTimeout(saveData, 2000);
     return () => clearTimeout(timeout);
   }, [orders, orderItems, appConfig, connectionStatus]);
+
+  // Manual Sync Function
+  const handleForceSync = async () => {
+    setLoading(true);
+    try {
+      await CloudService.saveData(orders, orderItems, appConfig);
+      setConnectionStatus('connected');
+      alert('تم رفع البيانات للسحابة بنجاح! يمكنك الآن فتح التطبيق من جهاز آخر.');
+    } catch (e: any) {
+      console.error(e);
+      setConnectionStatus('error');
+      alert('فشل الاتصال بالسحابة. تأكد من اتصال الإنترنت وحاول مرة أخرى.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Edit State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -317,9 +337,9 @@ function App() {
     }
     if (connectionStatus === 'error') {
       return (
-        <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-red-50 text-red-700 border-red-200" title="يوجد مشكلة في الاتصال بـ Vercel KV. تأكد من ربط قاعدة البيانات في لوحة التحكم">
+        <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border bg-red-50 text-red-700 border-red-200 animate-pulse cursor-pointer" onClick={() => alert('هناك مشكلة في الاتصال بقاعدة البيانات. البيانات محفوظة على هذا الجهاز فقط ولم يتم رفعها للسحابة.')} title="يوجد مشكلة في الاتصال. اضغط للمزيد">
            <AlertCircle size={14} />
-           <span className="hidden sm:inline">خطأ اتصال</span>
+           <span className="hidden sm:inline">خطأ اتصال (غير محفوظ سحابياً)</span>
         </div>
       );
     }
@@ -367,7 +387,7 @@ function App() {
         </nav>
 
         <div className="absolute bottom-0 w-full p-6 text-center text-xs text-gray-400">
-          إصدار 2.2 (Vercel Cloud Integration)
+          إصدار 2.3 (Sync Fix)
         </div>
       </aside>
 
@@ -393,6 +413,15 @@ function App() {
           
           <div className="flex items-center gap-4">
             
+            {/* Force Sync Button */}
+            <button 
+              onClick={handleForceSync}
+              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+              title="مزامنة يدوية مع السحابة"
+            >
+              <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
+            </button>
+
             {/* Quick Export Button */}
             <button 
               onClick={handleExportData}
