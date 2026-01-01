@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { DollarSign, ShoppingBag, FileText, Activity, Eye, X, User, Phone, MapPin, Package, MessageCircle, Calendar } from 'lucide-react';
-import { Order, OrderItem, OrderStatus } from '../types';
+import { DollarSign, ShoppingBag, FileText, Activity, Eye, X, User, Phone, MapPin, Package, MessageCircle, Calendar, Factory, Clock, AlertCircle } from 'lucide-react';
+import { Order, OrderItem, OrderStatus, FactoryOrder } from '../types';
 
 interface DashboardProps {
   orders: Order[];
   orderItems: OrderItem[];
+  factoryOrders: FactoryOrder[];
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems, factoryOrders }) => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   
   // Calculations
@@ -26,7 +27,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
 
     const ordersToday = orders.filter(o => o.createdAt.startsWith(today)).length;
     
-    // Active orders: Not Delivered, Not Cancelled, and Not Returned
     const activeOrders = orders.filter(o => 
       o.status !== OrderStatus.DELIVERED && 
       o.status !== OrderStatus.CANCELLED && 
@@ -40,6 +40,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
       ordersToday,
     };
   }, [orders, orderItems]);
+
+  // Simplified Factory Shortcuts (ONLY items waiting)
+  const waitingFactoryItems = useMemo(() => {
+    return factoryOrders
+      .filter(o => o.status === 'waiting')
+      .flatMap(o => o.items.map(i => ({
+        ...i,
+        ref: o.orderReference
+      })));
+  }, [factoryOrders]);
 
   const getOrderItemsForModal = (orderId: number) => {
     return orderItems.filter(item => item.orderId === orderId.toString());
@@ -63,18 +73,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
     return 'bg-blue-100 text-blue-800 border-blue-200';
   };
 
-  // Filter orders: Remove Delivered, Sort by Date Descending
   const recentOrders = orders
     .filter(o => o.status !== OrderStatus.DELIVERED)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-fade-in flex flex-col h-full overflow-hidden bg-slate-50">
-      <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 flex-shrink-0">لوحة التحكم (Dashboard)</h2>
+      <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 flex-shrink-0">لوحة التحكم</h2>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 flex-shrink-0">
-        {/* Total Sales */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
             <p className="text-xs md:text-sm text-gray-500 mb-1">إجمالي المبيعات</p>
@@ -85,7 +93,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
           </div>
         </div>
 
-        {/* Total Orders */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
             <p className="text-xs md:text-sm text-gray-500 mb-1">إجمالي الأوردرات</p>
@@ -96,7 +103,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
           </div>
         </div>
 
-         {/* Active Orders */}
          <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
             <p className="text-xs md:text-sm text-gray-500 mb-1">الأوردرات الجارية</p>
@@ -107,7 +113,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
           </div>
         </div>
 
-        {/* Orders Today */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
             <p className="text-xs md:text-sm text-gray-500 mb-1">أوردرات اليوم</p>
@@ -119,19 +124,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
         </div>
       </div>
 
+      {/* Simplified Minimal Factory Shortages (Waiting Only) */}
+      {waitingFactoryItems.length > 0 && (
+        <div className="flex-shrink-0 flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
+           <div className="flex items-center gap-1.5 px-3 border-l border-gray-100 shrink-0">
+              <Factory size={16} className="text-indigo-500" />
+              <span className="text-xs font-black text-gray-700">النواقص:</span>
+           </div>
+           <div className="flex gap-2 overflow-x-auto custom-scrollbar py-1">
+              {waitingFactoryItems.map((item, idx) => (
+                <div key={idx} className="flex-shrink-0 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg flex items-center gap-2">
+                   <span className="text-[11px] font-bold text-indigo-800">{item.type}</span>
+                   <span className="text-[10px] text-indigo-600 font-medium">{item.size} - {item.color}</span>
+                   <span className="w-5 h-5 flex items-center justify-center bg-white rounded text-[10px] font-black text-indigo-700 shadow-sm">
+                      {item.quantity}
+                   </span>
+                </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Recent Orders Section */}
-      <div className="flex-1 min-h-0 mt-2 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 flex justify-between items-center">
              <h3 className="text-lg font-semibold text-gray-700">أحدث الأوردرات النشطة</h3>
+             {waitingFactoryItems.length === 0 && <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full border border-green-100">لا توجد نواقص مصنع</span>}
           </div>
           
           <div className="flex-1 overflow-auto custom-scrollbar p-0">
             {recentOrders.length === 0 ? (
-                <div className="text-center py-10 text-gray-500">لا توجد أوردرات نشطة حالياً</div>
+                <div className="text-center py-10 text-gray-500 flex flex-col items-center gap-2">
+                   <Package size={40} className="opacity-20" />
+                   <p>لا توجد أوردرات نشطة حالياً</p>
+                </div>
             ) : (
                 <>
-                  {/* Desktop Table View */}
                   <table className="w-full text-sm text-right relative border-collapse hidden md:table">
                     <thead className="text-gray-600 bg-gray-50 sticky top-0 z-10 shadow-sm border-b border-gray-100">
                       <tr>
@@ -141,7 +170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                         <th className="py-3 px-4 font-semibold bg-gray-50">الحالة</th>
                       </tr>
                     </thead>
-                    <tbody className="text-gray-700 divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100">
                         {recentOrders.map(order => (
                         <tr key={order.id} className="hover:bg-blue-50/30 transition-colors">
                             <td className="py-3 px-4 font-mono text-gray-500">#{order.id}</td>
@@ -156,11 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                                 </button>
                             </td>
                             <td className="py-3 px-4">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium inline-block
-                                ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-800' :
-                                order.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-800' : 
-                                order.status === OrderStatus.RETURNED ? 'bg-gray-100 text-gray-800' :
-                                'bg-blue-100 text-blue-800'}`}>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium inline-block ${getStatusColor(order.status)} border`}>
                                 {order.status}
                             </span>
                             </td>
@@ -169,8 +194,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                     </tbody>
                   </table>
 
-                  {/* Mobile Cards View */}
-                  <div className="md:hidden space-y-3 p-4 bg-gray-50/50">
+                  <div className="md:hidden space-y-3 p-4 bg-gray-50/50 pb-20">
                     {recentOrders.map(order => (
                       <div key={order.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                         <div className="flex justify-between items-start mb-3">
@@ -178,7 +202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                             <span className="text-xs font-mono text-gray-500 block mb-1">#{order.id}</span>
                             <h4 className="font-bold text-gray-800">{order.customerName}</h4>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status).split(' ')[0]} ${getStatusColor(order.status).split(' ')[1]}`}>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)} border`}>
                             {order.status}
                           </span>
                         </div>
@@ -198,12 +222,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
         </div>
       </div>
 
-      {/* Order Details Modal (Responsive) */}
+      {/* Order Details Modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
           <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-4xl md:max-h-[90vh] flex flex-col overflow-hidden ring-1 ring-gray-200">
-            
-            {/* Modal Header */}
             <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-600 p-2 rounded-lg text-white shadow-sm hidden md:block">
@@ -225,12 +247,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-4 md:p-6 overflow-y-auto custom-scrollbar flex-1 bg-white space-y-4 md:space-y-6">
-              
-              {/* Info Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Customer Details */}
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
                   <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">
                     <User size={16} className="text-blue-600"/>
@@ -263,7 +281,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                   </div>
                 </div>
 
-                {/* Order Details */}
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
                   <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">
                     <Activity size={16} className="text-blue-600"/>
@@ -292,7 +309,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                 </div>
               </div>
 
-              {/* Products List (Table on Desktop, Cards on Mobile) */}
               <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                   <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
                       <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900">
@@ -301,7 +317,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                       </h4>
                   </div>
                   
-                  {/* Desktop Table */}
                   <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm text-right">
                           <thead className="bg-gray-50 text-gray-900 border-b border-gray-200">
@@ -332,7 +347,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                       </table>
                   </div>
 
-                  {/* Mobile Product Cards */}
                   <div className="md:hidden divide-y divide-gray-100 bg-white">
                     {getOrderItemsForModal(selectedOrder.id).map((item, idx) => (
                       <div key={idx} className="p-3">
@@ -359,7 +373,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
                   </div>
               </div>
 
-              {/* Notes */}
               {selectedOrder.notes && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
                   <h4 className="flex items-center gap-2 text-xs font-bold text-amber-800 mb-2">
@@ -371,7 +384,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems }) => {
               )}
             </div>
 
-            {/* Footer */}
             <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-col md:flex-row gap-3">
               <a 
                 href={getWhatsAppLink(selectedOrder)} 

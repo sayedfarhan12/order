@@ -1,4 +1,4 @@
-import { Order, OrderItem, AppConfig, Transaction } from './types';
+import { Order, OrderItem, AppConfig, Transaction, FactoryOrder } from './types';
 
 export interface ApiResponse {
   status: 'connected' | 'local' | 'error';
@@ -7,6 +7,7 @@ export interface ApiResponse {
     items?: OrderItem[];
     config?: AppConfig;
     transactions?: Transaction[];
+    factoryOrders?: FactoryOrder[];
   } | null;
   error: any | null;
 }
@@ -18,12 +19,8 @@ export const CloudService = {
       
       const isVercel = window.location.hostname.includes('vercel.app');
 
-      // Handle 404:
-      // If on Vercel/Production, 404 means the API route is broken/missing -> Error
-      // If on Localhost, 404 means we are just developing locally -> Local Mode
       if (response.status === 404 || response.headers.get('content-type')?.includes('text/html')) {
         if (isVercel) {
-          console.error("API Route not found on Vercel. Check vercel.json");
           throw new Error("Configuration Error: API Route Not Found");
         }
         return { status: 'local', data: null, error: null };
@@ -41,14 +38,14 @@ export const CloudService = {
     }
   },
 
-  async saveData(orders: Order[], items: OrderItem[], config: AppConfig, transactions: Transaction[]) {
+  async saveData(orders: Order[], items: OrderItem[], config: AppConfig, transactions: Transaction[], factoryOrders: FactoryOrder[]) {
     try {
       const response = await fetch('/api/db', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ orders, items, config, transactions })
+        body: JSON.stringify({ orders, items, config, transactions, factoryOrders })
       });
 
       if (response.status === 404) {

@@ -50,7 +50,7 @@ export interface Order {
   status: string;
   createdAt: string;
   notes: string;
-  airtableRecordId?: string; // Kept for legacy compatibility if needed
+  airtableRecordId?: string;
 }
 
 export interface NewOrderForm {
@@ -76,4 +76,19 @@ export interface Transaction {
   amount: number;
   description: string;
   date: string;
+}
+
+export interface FactorySubItem {
+  type: string;
+  size: string;
+  color: string;
+  quantity: number;
+}
+
+export interface FactoryOrder {
+  id: string;
+  orderReference: string; // Order # or Customer Name
+  status: 'waiting' | 'received';
+  createdAt: string;
+  items: FactorySubItem[];
 }
