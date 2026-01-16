@@ -99,7 +99,7 @@ const ListManager: React.FC<ListManagerProps> = ({
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder="إضافة جديد..."
-          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900"
+          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white text-black font-bold"
         />
         <button 
           type="submit"
@@ -150,9 +150,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.orders && json.items) {
-          if (window.confirm('سيتم استبدال جميع البيانات الحالية بالبيانات الموجودة في الملف. هل أنت متأكد؟')) {
-            onImportData(json);
-          }
+          onImportData(json);
         } else {
           alert('ملف غير صالح. تأكد من اختيار ملف النسخة الاحتياطية الصحيح.');
         }
@@ -184,7 +182,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <FileJson size={24} />
             <h3 className="text-lg font-bold">النسخ الاحتياطي اليدوي</h3>
           </div>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-gray-600 mb-6 font-medium">
              حفظ البيانات كملف على جهازك للأمان أو لنقلها.
           </p>
 
@@ -220,7 +218,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Cloud size={24} />
             <h3 className="text-lg font-bold">Vercel KV Storage</h3>
           </div>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-gray-600 mb-6 font-medium">
              التطبيق مرتبط الآن بقاعدة بيانات Vercel KV الداخلية. يتم حفظ البيانات تلقائياً.
           </p>
           
@@ -228,13 +226,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center gap-2 font-bold mb-2">
                <Check size={16} /> حالة النظام:
             </div>
-            يتم الاتصال بقاعدة البيانات تلقائياً عند وجود اتصال بالإنترنت. في حالة انقطاع الإنترنت، يتم الحفظ محلياً ثم المزامنة لاحقاً.
+            يتم الاتصال بقاعدة البيانات تلقائياً عند وجود اتصال بالإنترنت.
           </div>
         </div>
       </div>
 
       {/* Lists Configuration */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 mb-6">
+        <ListManager 
+          title="تصنيفات المصاريف والإيرادات" 
+          items={config.transactionCategories} 
+          onAdd={(item) => updateList('transactionCategories', [...config.transactionCategories, item])}
+          onRemove={(item) => updateList('transactionCategories', config.transactionCategories.filter(i => i !== item))}
+        />
+        
         <ListManager 
           title="أنواع المنتجات" 
           items={config.productTypes} 
@@ -248,7 +253,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onAdd={(item) => updateList('productSizes', [...config.productSizes, item])}
           onRemove={(item) => updateList('productSizes', config.productSizes.filter(i => i !== item))}
         />
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <ListManager 
           title="مصادر الأوردر" 
           items={config.sources} 

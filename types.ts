@@ -68,6 +68,7 @@ export interface AppConfig {
   sources: string[];
   productTypes: string[];
   productSizes: string[];
+  transactionCategories: string[];
 }
 
 export interface Transaction {
@@ -75,6 +76,7 @@ export interface Transaction {
   type: 'income' | 'expense';
   amount: number;
   description: string;
+  category: string;
   date: string;
 }
 

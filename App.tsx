@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, Loader2, Cloud, Download, CloudOff, AlertCircle, RefreshCcw, Wallet, Factory } from 'lucide-react';
+import { LayoutDashboard, List, PlusCircle, Menu, X, Shirt, Settings as SettingsIcon, Loader2, Cloud, Download, CloudOff, AlertCircle, RefreshCcw, Wallet, Factory, BarChart3 } from 'lucide-react';
 import { INITIAL_ORDERS, INITIAL_ORDER_ITEMS, INITIAL_TRANSACTIONS } from './constants';
 import { Order, OrderItem, NewOrderForm, AppConfig, OrderStatus, OrderSource, ProductType, ProductSize, Transaction, FactoryOrder } from './types';
 import { Dashboard } from './components/Dashboard';
@@ -8,6 +8,7 @@ import { OrderForm } from './components/OrderForm';
 import { SettingsView } from './components/SettingsView';
 import { TreasuryView } from './components/TreasuryView';
 import { FactoryOrdersView } from './components/FactoryOrdersView';
+import { TotalsView } from './components/TotalsView';
 import { CloudService } from './api';
 
 enum Route {
@@ -15,6 +16,7 @@ enum Route {
   ORDERS = 'orders',
   NEW_ORDER = 'new-order',
   TREASURY = 'treasury',
+  TOTALS = 'totals',
   FACTORY = 'factory',
   SETTINGS = 'settings'
 }
@@ -43,14 +45,16 @@ function App() {
         statuses: Object.values(OrderStatus),
         sources: Object.values(OrderSource),
         productTypes: Object.values(ProductType),
-        productSizes: Object.values(ProductSize)
+        productSizes: Object.values(ProductSize),
+        transactionCategories: ["مبيعات", "مشتريات خامات", "إعلانات", "مصاريف شحن", "رواتب", "إيجار/كهرباء", "أخرى"]
       };
     } catch (e) {
       return {
         statuses: Object.values(OrderStatus),
         sources: Object.values(OrderSource),
         productTypes: Object.values(ProductType),
-        productSizes: Object.values(ProductSize)
+        productSizes: Object.values(ProductSize),
+        transactionCategories: ["مبيعات", "مشتريات خامات", "إعلانات", "مصاريف شحن", "رواتب", "إيجار/كهرباء", "أخرى"]
       };
     }
   });
@@ -154,7 +158,7 @@ function App() {
   const [editFormData, setEditFormData] = useState<NewOrderForm | undefined>(undefined);
 
   const handleExportData = () => {
-    const data = { version: "1.7", timestamp: new Date().toISOString(), orders, items: orderItems, config: appConfig, transactions, factoryOrders };
+    const data = { version: "1.8", timestamp: new Date().toISOString(), orders, items: orderItems, config: appConfig, transactions, factoryOrders };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -201,7 +205,6 @@ function App() {
 
   const handleStatusChange = (id: number, newStatus: string) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
   
-  // FIX: Removed the redundant window.confirm as the UI handles it
   const handleDeleteOrder = (id: number) => { 
     setOrders(prev => prev.filter(o => o.id !== id)); 
     setOrderItems(prev => prev.filter(item => item.orderId !== id.toString())); 
@@ -253,6 +256,7 @@ function App() {
           <NavItem route={Route.FACTORY} icon={Factory} label="طلبيات المصنع" />
           <NavItem route={Route.NEW_ORDER} icon={PlusCircle} label={editingId ? "تعديل أوردر" : "إضافة أوردر"} />
           <NavItem route={Route.TREASURY} icon={Wallet} label="الخزينة" />
+          <NavItem route={Route.TOTALS} icon={BarChart3} label="الإجماليات" />
           <NavItem route={Route.SETTINGS} icon={SettingsIcon} label="الإعدادات" />
         </nav>
       </aside>
@@ -271,7 +275,8 @@ function App() {
           {activeRoute === Route.ORDERS && <OrdersView orders={orders} orderItems={orderItems} onStatusChange={handleStatusChange} onEditOrder={handleEditOrder} onDeleteOrder={handleDeleteOrder} statuses={appConfig.statuses} />}
           {activeRoute === Route.FACTORY && <FactoryOrdersView orders={factoryOrders} onUpdate={setFactoryOrders} config={appConfig} />}
           {activeRoute === Route.NEW_ORDER && <OrderForm onSubmit={handleSaveOrder} initialData={editFormData} isEditing={!!editingId} config={appConfig} />}
-          {activeRoute === Route.TREASURY && <TreasuryView transactions={transactions} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} />}
+          {activeRoute === Route.TREASURY && <TreasuryView transactions={transactions} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} config={appConfig} />}
+          {activeRoute === Route.TOTALS && <TotalsView transactions={transactions} orders={orders} orderItems={orderItems} config={appConfig} />}
           {activeRoute === Route.SETTINGS && <SettingsView config={appConfig} onUpdateConfig={setAppConfig} orders={orders} orderItems={orderItems} onImportData={handleImportData} onExportData={handleExportData} />}
         </div>
       </main>

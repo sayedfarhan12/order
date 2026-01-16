@@ -1,19 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction } from '../types';
-import { Wallet, ArrowUpCircle, ArrowDownCircle, Plus, Trash2, Edit2, TrendingUp, TrendingDown, Save, X, AlertTriangle } from 'lucide-react';
+import { Transaction, AppConfig } from '../types';
+import { Wallet, ArrowUpCircle, ArrowDownCircle, Plus, Trash2, Edit2, TrendingUp, TrendingDown, Save, X, AlertTriangle, Tag } from 'lucide-react';
 
 interface TreasuryViewProps {
   transactions: Transaction[];
   onAddTransaction: (transaction: Transaction) => void;
   onUpdateTransaction: (transaction: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
+  config: AppConfig;
 }
 
 export const TreasuryView: React.FC<TreasuryViewProps> = ({ 
   transactions, 
   onAddTransaction, 
   onUpdateTransaction,
-  onDeleteTransaction 
+  onDeleteTransaction,
+  config
 }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,11 +25,13 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
     type: 'income' | 'expense';
     amount: string;
     description: string;
+    category: string;
     date: string;
   }>({
     type: 'income',
     amount: '',
     description: '',
+    category: config.transactionCategories[0] || 'أخرى',
     date: new Date().toISOString().split('T')[0]
   });
 
@@ -56,6 +60,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
       type: formData.type,
       amount: parseFloat(formData.amount),
       description: formData.description,
+      category: formData.category,
       date: formData.date
     };
 
@@ -73,6 +78,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
       type: transaction.type,
       amount: transaction.amount.toString(),
       description: transaction.description,
+      category: transaction.category || config.transactionCategories[0],
       date: transaction.date
     });
     setEditingId(transaction.id);
@@ -84,6 +90,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
       type: 'income',
       amount: '',
       description: '',
+      category: config.transactionCategories[0] || 'أخرى',
       date: new Date().toISOString().split('T')[0]
     });
     setEditingId(null);
@@ -201,18 +208,30 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">المبلغ (ج.م)</label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-left font-black text-black text-lg"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                  placeholder="0.00"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">المبلغ (ج.م)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-left font-black text-black text-lg"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-gray-500 mb-1">التصنيف</label>
+                   <select 
+                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-black font-bold"
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                   >
+                     {config.transactionCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                   </select>
+                </div>
               </div>
 
               <div>
@@ -253,7 +272,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
 
       {deleteConfirmationId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-sm p-6 flex flex-col items-center text-center">
              <div className="bg-red-100 p-4 rounded-full text-red-600 mb-4 shadow-sm">
                 <AlertTriangle size={32} />
              </div>
@@ -292,7 +311,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
               <table className="w-full text-sm text-right hidden md:table">
                 <thead className="bg-slate-50 text-slate-600 font-bold sticky top-0 shadow-sm z-10 border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-4">النوع</th>
+                    <th className="px-6 py-4">النوع / التصنيف</th>
                     <th className="px-6 py-4">الوصف</th>
                     <th className="px-6 py-4 text-center">التاريخ</th>
                     <th className="px-6 py-4 text-left">المبلغ</th>
@@ -303,12 +322,18 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                   {sortedTransactions.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black ${
-                          item.type === 'income' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
-                        }`}>
-                          {item.type === 'income' ? <ArrowUpCircle size={14} /> : <ArrowDownCircle size={14} />}
-                          {item.type === 'income' ? 'وارد' : 'صادر'}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-black w-fit ${
+                            item.type === 'income' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+                          }`}>
+                            {item.type === 'income' ? <ArrowUpCircle size={10} /> : <ArrowDownCircle size={10} />}
+                            {item.type === 'income' ? 'وارد' : 'صادر'}
+                          </span>
+                          <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                            <Tag size={10} />
+                            {item.category}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">{item.description}</td>
                       <td className="px-6 py-4 text-center text-gray-500 font-mono text-xs">{item.date}</td>
@@ -344,7 +369,10 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                           </span>
                           <div>
                             <h4 className="font-black text-slate-800 text-sm">{item.description}</h4>
-                            <span className="text-[10px] text-gray-400 block font-mono">{item.date}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-blue-600 font-bold">#{item.category}</span>
+                              <span className="text-[10px] text-gray-400 font-mono">{item.date}</span>
+                            </div>
                           </div>
                        </div>
                        <div className={`font-mono font-black text-lg ${
