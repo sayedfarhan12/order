@@ -30,25 +30,14 @@ export const INITIAL_ORDERS: Order[] = [
     status: OrderStatus.READY,
     createdAt: new Date(Date.now() - 3600000 * 5).toISOString(), // 5 hours ago
     notes: "تغليف هدايا",
-  },
-  {
-    id: 1004,
-    customerName: "كريم يحيى",
-    phone: "01000000000",
-    address: "المنصورة، شارع المشاية",
-    source: OrderSource.WHATSAPP,
-    status: OrderStatus.CANCELLED,
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    notes: "العميل ألغى الطلب",
   }
 ];
 
 export const INITIAL_ORDER_ITEMS: OrderItem[] = [
-  { id: "item-1", orderId: "1001", type: ProductType.HOODIE, color: "أسود", size: ProductSize.L, quantity: 1, price: 450 },
-  { id: "item-2", orderId: "1001", type: ProductType.PANTS, color: "بيج", size: "32" as any, quantity: 1, price: 250 },
-  { id: "item-3", orderId: "1002", type: ProductType.TSHIRT, color: "أبيض", size: ProductSize.M, quantity: 2, price: 150 },
-  { id: "item-4", orderId: "1003", type: ProductType.SWEATSHIRT, color: "كحلي", size: ProductSize.XL, quantity: 1, price: 350 },
-  { id: "item-5", orderId: "1004", type: ProductType.HOODIE, color: "رمادي", size: ProductSize.XXL, quantity: 1, price: 500 },
+  { id: "item-1", orderId: "1001", type: ProductType.HOODIE, color: "أسود", size: ProductSize.L, quantity: 1, price: 750, costPrice: 550 },
+  { id: "item-2", orderId: "1001", type: ProductType.PANTS, color: "بيج", size: "32" as any, quantity: 1, price: 650, costPrice: 450 },
+  { id: "item-3", orderId: "1002", type: ProductType.TSHIRT, color: "أبيض", size: ProductSize.M, quantity: 2, price: 350, costPrice: 250 },
+  { id: "item-4", orderId: "1003", type: ProductType.SWEATSHIRT, color: "كحلي", size: ProductSize.XL, quantity: 1, price: 600, costPrice: 400 },
 ];
 
 export const INITIAL_TRANSACTIONS: Transaction[] = [];

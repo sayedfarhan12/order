@@ -39,6 +39,7 @@ export interface OrderItem {
   size: string;
   quantity: number;
   price: number;
+  costPrice: number; // Added for actual profit calculation
 }
 
 export interface Order {

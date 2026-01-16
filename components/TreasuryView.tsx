@@ -21,6 +21,10 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   
+  // Safe Category Logic
+  const categories = config?.transactionCategories || ["أخرى"];
+  const defaultCategory = categories[0] || "أخرى";
+
   const [formData, setFormData] = useState<{
     type: 'income' | 'expense';
     amount: string;
@@ -31,18 +35,19 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
     type: 'income',
     amount: '',
     description: '',
-    category: config.transactionCategories[0] || 'أخرى',
+    category: defaultCategory,
     date: new Date().toISOString().split('T')[0]
   });
 
   const stats = useMemo(() => {
+    if (!transactions) return { totalIncome: 0, totalExpense: 0, balance: 0 };
     const totalIncome = transactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
     
     const totalExpense = transactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
 
     return {
       totalIncome,
@@ -60,7 +65,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
       type: formData.type,
       amount: parseFloat(formData.amount),
       description: formData.description,
-      category: formData.category,
+      category: formData.category || defaultCategory,
       date: formData.date
     };
 
@@ -78,7 +83,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
       type: transaction.type,
       amount: transaction.amount.toString(),
       description: transaction.description,
-      category: transaction.category || config.transactionCategories[0],
+      category: transaction.category || defaultCategory,
       date: transaction.date
     });
     setEditingId(transaction.id);
@@ -90,7 +95,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
       type: 'income',
       amount: '',
       description: '',
-      category: config.transactionCategories[0] || 'أخرى',
+      category: defaultCategory,
       date: new Date().toISOString().split('T')[0]
     });
     setEditingId(null);
@@ -111,7 +116,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
     }
   };
 
-  const sortedTransactions = [...transactions].sort((a, b) => 
+  const sortedTransactions = [...(transactions || [])].sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
@@ -137,7 +142,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
           <div>
             <p className="text-xs text-gray-500 font-bold mb-1">الرصيد الحالي</p>
             <p className={`text-2xl md:text-3xl font-black font-mono ${stats.balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-              {stats.balance.toLocaleString()} <span className="text-sm">ج.م</span>
+              {(stats.balance || 0).toLocaleString()} <span className="text-sm">ج.م</span>
             </p>
           </div>
           <div className={`p-2 md:p-3 rounded-full ${stats.balance >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
@@ -149,7 +154,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
           <div>
             <p className="text-xs text-gray-500 font-bold mb-1">إجمالي الوارد</p>
             <p className="text-xl md:text-2xl font-black text-emerald-600 font-mono">
-              +{stats.totalIncome.toLocaleString()}
+              +{(stats.totalIncome || 0).toLocaleString()}
             </p>
           </div>
           <div className="p-2 md:p-3 bg-emerald-50 rounded-full text-emerald-600">
@@ -161,7 +166,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
           <div>
             <p className="text-xs text-gray-500 font-bold mb-1">إجمالي الصادر</p>
             <p className="text-xl md:text-2xl font-black text-red-600 font-mono">
-              -{stats.totalExpense.toLocaleString()}
+              -{(stats.totalExpense || 0).toLocaleString()}
             </p>
           </div>
           <div className="p-2 md:p-3 bg-red-50 rounded-full text-red-600">
@@ -229,7 +234,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                     value={formData.category}
                     onChange={(e) => setFormData({...formData, category: e.target.value})}
                    >
-                     {config.transactionCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                     {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                    </select>
                 </div>
               </div>
@@ -296,7 +301,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
         <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
           <h3 className="font-bold text-gray-700">سجل المعاملات</h3>
           <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full border border-blue-100">
-            {transactions.length} معالجة
+            {sortedTransactions.length} معالجة
           </span>
         </div>
         
@@ -331,7 +336,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                           </span>
                           <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
                             <Tag size={10} />
-                            {item.category}
+                            {item.category || "أخرى"}
                           </span>
                         </div>
                       </td>
@@ -340,7 +345,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                       <td className={`px-6 py-4 text-left font-mono font-black text-base ${
                         item.type === 'income' ? 'text-emerald-600' : 'text-red-600'
                       }`}>
-                        {item.type === 'expense' ? '-' : '+'}{item.amount.toLocaleString()}
+                        {item.type === 'expense' ? '-' : '+'}{(item.amount || 0).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -370,7 +375,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                           <div>
                             <h4 className="font-black text-slate-800 text-sm">{item.description}</h4>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-blue-600 font-bold">#{item.category}</span>
+                              <span className="text-[10px] text-blue-600 font-bold">#{item.category || "أخرى"}</span>
                               <span className="text-[10px] text-gray-400 font-mono">{item.date}</span>
                             </div>
                           </div>
@@ -378,7 +383,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                        <div className={`font-mono font-black text-lg ${
                           item.type === 'income' ? 'text-emerald-600' : 'text-red-600'
                         }`}>
-                          {item.type === 'expense' ? '-' : '+'}{item.amount.toLocaleString()}
+                          {item.type === 'expense' ? '-' : '+'}{(item.amount || 0).toLocaleString()}
                        </div>
                      </div>
                      <div className="flex justify-end gap-2 pt-3 border-t border-gray-50">

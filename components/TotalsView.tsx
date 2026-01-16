@@ -12,24 +12,30 @@ interface TotalsViewProps {
 export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, orderItems, config }) => {
   
   const analytics = useMemo(() => {
-    // 1. Basic Order Stats
-    const totalOrdersCount = orders.length;
+    // 1. Sales and Real Profit
+    const validOrders = orders.filter(o => o.status !== OrderStatus.CANCELLED && o.status !== OrderStatus.RETURNED);
     
-    const calculateOrderTotal = (orderId: number) => {
-      return orderItems
-        .filter(item => item.orderId === orderId.toString())
-        .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    };
+    let totalSalesAmount = 0;
+    let totalCostAmount = 0;
 
-    const totalSalesAmount = orders
-      .filter(o => o.status !== OrderStatus.CANCELLED && o.status !== OrderStatus.RETURNED)
-      .reduce((sum, order) => sum + calculateOrderTotal(order.id), 0);
+    validOrders.forEach(order => {
+        const items = orderItems.filter(item => item.orderId === order.id.toString());
+        items.forEach(item => {
+            totalSalesAmount += (item.price * item.quantity);
+            totalCostAmount += ((item.costPrice || 0) * item.quantity);
+        });
+    });
 
-    // 2. Income Breakdown
+    const realProfitFromSales = totalSalesAmount - totalCostAmount;
+
+    // Categories safeguard
+    const categories = config?.transactionCategories || [];
+
+    // 2. Treasury Analysis (Income vs Expense)
     const incomeTransactions = transactions.filter(t => t.type === 'income');
     const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
     
-    const incomeByCategory = config.transactionCategories.map(cat => {
+    const incomeByCategory = categories.map(cat => {
         const amount = incomeTransactions
             .filter(t => t.category === cat)
             .reduce((sum, t) => sum + t.amount, 0);
@@ -37,11 +43,10 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
         return { name: cat, amount, percentage };
     }).filter(c => c.amount > 0).sort((a, b) => b.amount - a.amount);
 
-    // 3. Expense Breakdown
     const expenseTransactions = transactions.filter(t => t.type === 'expense');
     const totalExpense = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     
-    const expenseByCategory = config.transactionCategories.map(cat => {
+    const expenseByCategory = categories.map(cat => {
         const amount = expenseTransactions
             .filter(t => t.category === cat)
             .reduce((sum, t) => sum + t.amount, 0);
@@ -50,11 +55,13 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
     }).filter(c => c.amount > 0).sort((a, b) => b.amount - a.amount);
 
     return {
-      totalOrdersCount,
+      totalOrdersCount: orders.length,
       totalSalesAmount,
+      totalCostAmount,
+      realProfitFromSales,
       totalIncome,
       totalExpense,
-      netProfit: totalIncome - totalExpense,
+      netTreasuryBalance: totalIncome - totalExpense,
       incomeByCategory,
       expenseByCategory
     };
@@ -67,7 +74,7 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
         <p className={`text-2xl font-black font-mono ${colorClass}`}>{value}</p>
         {subtitle && <p className="text-[10px] text-gray-400 mt-1">{subtitle}</p>}
       </div>
-      <div className={`p-3 rounded-2xl ${colorClass.replace('text-', 'bg-').replace('600', '50')}`}>
+      <div className={`p-3 rounded-2xl ${colorClass.replace('text-', 'bg-').replace('600', '50').replace('emerald', 'emerald').replace('indigo', 'indigo').replace('blue', 'blue')}`}>
         <Icon size={24} />
       </div>
     </div>
@@ -81,7 +88,10 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
       </div>
       <div className="p-4 space-y-4">
         {data.length === 0 ? (
-          <p className="text-center py-6 text-gray-400 text-sm">لا توجد بيانات مسجلة</p>
+          <div className="text-center py-6 flex flex-col items-center gap-2">
+            <Tag size={32} className="text-gray-200" />
+            <p className="text-gray-400 text-xs font-bold">لا توجد بيانات مسجلة لهذا التصنيف</p>
+          </div>
         ) : (
           data.map((item, idx) => (
             <div key={idx} className="space-y-1.5">
@@ -97,7 +107,7 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
                   style={{ width: `${item.percentage}%` }}
                 ></div>
               </div>
-              <p className="text-[10px] text-gray-400 text-left">{item.percentage.toFixed(1)}%</p>
+              <p className="text-[10px] text-gray-400 text-left font-bold">{item.percentage.toFixed(1)}%</p>
             </div>
           ))
         )}
@@ -106,25 +116,25 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 h-full overflow-y-auto custom-scrollbar animate-fade-in bg-slate-50 pb-20">
+    <div className="p-4 md:p-6 space-y-6 h-full overflow-y-auto custom-scrollbar animate-fade-in bg-slate-50 pb-24">
       <div className="flex items-center gap-3">
         <div className="bg-indigo-600 p-2 rounded-lg text-white shadow-sm">
           <BarChart3 size={24} />
         </div>
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">إجماليات المتجر</h2>
-          <p className="text-xs text-gray-500 font-medium">تحليل شامل للمبيعات، الإيرادات، والمصروفات</p>
+          <p className="text-xs text-gray-500 font-medium">تحليل شامل للمبيعات، الأرباح، والخزينة</p>
         </div>
       </div>
 
       {/* Main KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
-          title="صافي رصيد الخزينة" 
-          value={`${analytics.netProfit.toLocaleString()} ج.م`} 
-          icon={DollarSign} 
-          colorClass={analytics.netProfit >= 0 ? "text-blue-600" : "text-red-600"} 
-          subtitle="إجمالي الوارد - إجمالي الصادر"
+          title="الربح الفعلي للمبيعات" 
+          value={`${analytics.realProfitFromSales.toLocaleString()} ج.م`} 
+          icon={TrendingUp} 
+          colorClass="text-emerald-600" 
+          subtitle="إجمالي البيع - إجمالي التكلفة"
         />
         <StatCard 
           title="إجمالي المبيعات" 
@@ -134,65 +144,69 @@ export const TotalsView: React.FC<TotalsViewProps> = ({ transactions, orders, or
           subtitle="الأوردرات غير الملغية"
         />
         <StatCard 
-          title="إجمالي الوارد" 
-          value={`${analytics.totalIncome.toLocaleString()} ج.م`} 
-          icon={TrendingUp} 
-          colorClass="text-emerald-600" 
+          title="صافي رصيد الخزينة" 
+          value={`${analytics.netTreasuryBalance.toLocaleString()} ج.م`} 
+          icon={DollarSign} 
+          colorClass={analytics.netTreasuryBalance >= 0 ? "text-blue-600" : "text-red-600"} 
+          subtitle="إجمالي الوارد - إجمالي الصادر"
         />
         <StatCard 
-          title="إجمالي الصادر" 
-          value={`${analytics.totalExpense.toLocaleString()} ج.م`} 
-          icon={TrendingDown} 
-          colorClass="text-red-600" 
+          title="إجمالي التكاليف" 
+          value={`${analytics.totalCostAmount.toLocaleString()} ج.م`} 
+          icon={Package} 
+          colorClass="text-amber-600" 
+          subtitle="تكلفة البضاعة المباعة"
         />
       </div>
 
-      {/* Secondary KPIs */}
+      {/* Secondary Details */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center">
             <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">عدد الأوردرات</p>
             <p className="text-xl font-black text-slate-800 font-mono">{analytics.totalOrdersCount}</p>
         </div>
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center">
-            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">متوسط قيمة الأوردر</p>
-            <p className="text-xl font-black text-indigo-600 font-mono">
-                {analytics.totalOrdersCount > 0 ? (analytics.totalSalesAmount / analytics.totalOrdersCount).toLocaleString(undefined, {maximumFractionDigits:0}) : 0}
+            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">متوسط ربح الأوردر</p>
+            <p className="text-xl font-black text-emerald-600 font-mono">
+                {analytics.totalOrdersCount > 0 ? (analytics.realProfitFromSales / analytics.totalOrdersCount).toLocaleString(undefined, {maximumFractionDigits:0}) : 0}
             </p>
         </div>
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center">
-            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">عدد حركات الخزينة</p>
-            <p className="text-xl font-black text-slate-800 font-mono">{transactions.length}</p>
+            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">هامش الربح</p>
+            <p className="text-xl font-black text-indigo-600 font-mono">
+                {analytics.totalSalesAmount > 0 ? ((analytics.realProfitFromSales / analytics.totalSalesAmount) * 100).toFixed(1) : 0}%
+            </p>
         </div>
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center">
-            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">الأرباح التقديرية</p>
-            <p className="text-xl font-black text-emerald-600 font-mono">{(analytics.totalSalesAmount * 0.3).toLocaleString(undefined, {maximumFractionDigits:0})}</p>
+            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">إجمالي المصروفات</p>
+            <p className="text-xl font-black text-red-600 font-mono">{analytics.totalExpense.toLocaleString()}</p>
         </div>
       </div>
 
       {/* Breakdown Grids */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <BreakdownList 
-          title="تحليل الوارد حسب التصنيف" 
+          title="واردات الخزينة" 
           data={analytics.incomeByCategory} 
           type="income" 
         />
         <BreakdownList 
-          title="تحليل الصادر حسب التصنيف" 
+          title="مصاريف الخزينة" 
           data={analytics.expenseByCategory} 
           type="expense" 
         />
       </div>
 
-      {/* Summary Note */}
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex items-start gap-4">
-         <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-            <PieChart size={24} />
+      {/* Profit Note */}
+      <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex items-start gap-4">
+         <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+            <TrendingUp size={24} />
          </div>
          <div>
-            <h4 className="font-black text-blue-900 mb-1">ملخص الأداء</h4>
-            <p className="text-sm text-blue-800 leading-relaxed font-medium">
-                تمثل المبيعات {analytics.incomeByCategory.find(i => i.name === 'مبيعات')?.percentage.toFixed(1) || 0}% من إجمالي واردات الخزينة. 
-                أكبر بند للمصروفات حالياً هو <span className="font-black">{analytics.expenseByCategory[0]?.name || 'غير محدد'}</span> بمبلغ {analytics.expenseByCategory[0]?.amount.toLocaleString() || 0} ج.م.
+            <h4 className="font-black text-emerald-900 mb-1">الربح الصافي النهائي</h4>
+            <p className="text-sm text-emerald-800 leading-relaxed font-bold">
+                بعد خصم جميع المصاريف المسجلة في الخزينة ({analytics.totalExpense.toLocaleString()} ج.م) من أرباح المبيعات ({analytics.realProfitFromSales.toLocaleString()} ج.م)، 
+                يصبح صافي ربح المتجر الفعلي هو <span className="text-indigo-700 underline">{(analytics.realProfitFromSales - analytics.totalExpense).toLocaleString()} ج.م</span>.
             </p>
          </div>
       </div>

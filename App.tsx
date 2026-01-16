@@ -29,6 +29,14 @@ const STORAGE_KEYS = {
   FACTORY: 'happy_store_factory_v2'
 };
 
+const DEFAULT_CONFIG: AppConfig = {
+  statuses: Object.values(OrderStatus),
+  sources: Object.values(OrderSource),
+  productTypes: Object.values(ProductType),
+  productSizes: Object.values(ProductSize),
+  transactionCategories: ["مبيعات", "مشتريات خامات", "إعلانات", "مصاريف شحن", "رواتب", "إيجار/كهرباء", "أخرى"]
+};
+
 type ConnectionStatus = 'loading' | 'connected' | 'local' | 'error' | 'syncing';
 
 function App() {
@@ -41,21 +49,11 @@ function App() {
   const [appConfig, setAppConfig] = useState<AppConfig>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CONFIG);
-      return saved ? JSON.parse(saved) : {
-        statuses: Object.values(OrderStatus),
-        sources: Object.values(OrderSource),
-        productTypes: Object.values(ProductType),
-        productSizes: Object.values(ProductSize),
-        transactionCategories: ["مبيعات", "مشتريات خامات", "إعلانات", "مصاريف شحن", "رواتب", "إيجار/كهرباء", "أخرى"]
-      };
+      if (!saved) return DEFAULT_CONFIG;
+      const parsed = JSON.parse(saved);
+      return { ...DEFAULT_CONFIG, ...parsed };
     } catch (e) {
-      return {
-        statuses: Object.values(OrderStatus),
-        sources: Object.values(OrderSource),
-        productTypes: Object.values(ProductType),
-        productSizes: Object.values(ProductSize),
-        transactionCategories: ["مبيعات", "مشتريات خامات", "إعلانات", "مصاريف شحن", "رواتب", "إيجار/كهرباء", "أخرى"]
-      };
+      return DEFAULT_CONFIG;
     }
   });
 
@@ -92,15 +90,16 @@ function App() {
       if (result.status === 'connected' && result.data) {
         if (result.data.orders) setOrders(result.data.orders);
         if (result.data.items) setOrderItems(result.data.items);
-        if (result.data.config) setAppConfig(result.data.config);
         if (result.data.transactions) setTransactions(result.data.transactions);
         if (result.data.factoryOrders) setFactoryOrders(result.data.factoryOrders);
         
-        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(result.data.orders || []));
-        localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(result.data.items || []));
-        localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(result.data.transactions || []));
-        localStorage.setItem(STORAGE_KEYS.FACTORY, JSON.stringify(result.data.factoryOrders || []));
-        if (result.data.config) localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(result.data.config));
+        if (result.data.config) {
+          setAppConfig(prev => ({
+            ...DEFAULT_CONFIG,
+            ...result.data!.config,
+            transactionCategories: result.data!.config?.transactionCategories || DEFAULT_CONFIG.transactionCategories
+          }));
+        }
         
         setConnectionStatus('connected');
         setErrorMessage("");
@@ -108,7 +107,7 @@ function App() {
         setConnectionStatus('local');
       } else {
         setConnectionStatus('error');
-        setErrorMessage("فشل الاتصال");
+        setErrorMessage("فشل الاتصال بالسحابة");
       }
       setLoading(false);
     };
@@ -123,16 +122,11 @@ function App() {
         localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
         localStorage.setItem(STORAGE_KEYS.FACTORY, JSON.stringify(factoryOrders));
 
-        if (connectionStatus !== 'local' && connectionStatus !== 'loading') {
+        if (connectionStatus === 'connected') {
             try {
                 await CloudService.saveData(orders, orderItems, appConfig, transactions, factoryOrders);
-                setConnectionStatus('connected');
-                setErrorMessage("");
             } catch (e: any) {
-                if (e.message !== 'Local Mode') {
-                   setConnectionStatus('error');
-                   setErrorMessage("فشل الحفظ التلقائي");
-                }
+                console.error("Auto-save failed", e);
             }
         }
     };
@@ -145,7 +139,6 @@ function App() {
     try {
       await CloudService.saveData(orders, orderItems, appConfig, transactions, factoryOrders);
       setConnectionStatus('connected');
-      setErrorMessage("");
       alert('تمت المزامنة بنجاح!');
     } catch (e: any) {
       alert(`فشل المزامنة: ${e.message}`);
@@ -158,7 +151,7 @@ function App() {
   const [editFormData, setEditFormData] = useState<NewOrderForm | undefined>(undefined);
 
   const handleExportData = () => {
-    const data = { version: "1.8", timestamp: new Date().toISOString(), orders, items: orderItems, config: appConfig, transactions, factoryOrders };
+    const data = { version: "2.0", timestamp: new Date().toISOString(), orders, items: orderItems, config: appConfig, transactions, factoryOrders };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -172,13 +165,31 @@ function App() {
     try {
       if (data.orders) setOrders(data.orders);
       if (data.items) setOrderItems(data.items);
-      if (data.config) setAppConfig(data.config);
-      if (data.transactions) setTransactions(data.transactions);
+      
+      // CRITICAL FIX: Merge imported config with DEFAULT_CONFIG
+      if (data.config) {
+        setAppConfig({
+          ...DEFAULT_CONFIG,
+          ...data.config,
+          transactionCategories: data.config.transactionCategories || DEFAULT_CONFIG.transactionCategories
+        });
+      }
+
+      if (data.transactions) {
+        // Ensure transactions have a category if they are old
+        const fixedTransactions = data.transactions.map((t: any) => ({
+          ...t,
+          category: t.category || "أخرى"
+        }));
+        setTransactions(fixedTransactions);
+      }
+      
       if (data.factoryOrders) setFactoryOrders(data.factoryOrders);
-      alert('تم استعادة البيانات بنجاح!');
+      
+      alert('تم استعادة البيانات ودمج الإعدادات بنجاح!');
       setActiveRoute(Route.DASHBOARD);
     } catch (error) {
-      alert("حدث خطأ أثناء الاستعادة");
+      alert("حدث خطأ أثناء الاستعادة: " + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -232,7 +243,7 @@ function App() {
   const NavItem = ({ route, icon: Icon, label }: { route: Route, icon: any, label: string }) => (
     <button
       onClick={() => { setActiveRoute(route); if (route === Route.NEW_ORDER && editingId) { setEditingId(null); setEditFormData(undefined); } setIsSidebarOpen(false); }}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium ${activeRoute === route ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-100'}`}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-bold ${activeRoute === route ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-100'}`}
     >
       <Icon size={20} />
       <span>{label}</span>
@@ -265,9 +276,12 @@ function App() {
         <header className="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between md:justify-end">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-600 p-2 hover:bg-gray-100 rounded-lg"><Menu size={24} /></button>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold">
+               <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : connectionStatus === 'error' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`}></div>
+               <span className="text-slate-500">{connectionStatus === 'connected' ? 'سحابي' : connectionStatus === 'local' ? 'محلي' : 'غير متصل'}</span>
+            </div>
             <button onClick={handleForceSync} className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><RefreshCcw size={18} /></button>
             <button onClick={handleExportData} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors border border-gray-300"><Download size={14} /><span className="hidden sm:inline">نسخة احتياطية</span></button>
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm border border-blue-200">S</div>
           </div>
         </header>
         <div className="flex-1 overflow-auto bg-slate-50">

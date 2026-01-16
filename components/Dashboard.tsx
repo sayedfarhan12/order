@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { DollarSign, ShoppingBag, FileText, Activity, Eye, X, User, Phone, MapPin, Package, MessageCircle, Calendar, Factory, Clock, AlertCircle } from 'lucide-react';
+import { DollarSign, ShoppingBag, FileText, Activity, Eye, X, User, Phone, MapPin, Package, MessageCircle, Calendar, Factory, Clock, AlertCircle, TrendingUp } from 'lucide-react';
 import { Order, OrderItem, OrderStatus, FactoryOrder } from '../types';
 
 interface DashboardProps {
@@ -15,15 +15,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems, factor
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     
-    const calculateOrderTotal = (orderId: number) => {
-      return orderItems
-        .filter(item => item.orderId === orderId.toString())
-        .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    };
+    // Total Sales and Profit for orders that are NOT cancelled or returned
+    const validOrders = orders.filter(o => o.status !== OrderStatus.CANCELLED && o.status !== OrderStatus.RETURNED);
+    
+    let totalSales = 0;
+    let totalProfit = 0;
 
-    const totalSales = orders
-      .filter(o => o.status !== OrderStatus.CANCELLED && o.status !== OrderStatus.RETURNED)
-      .reduce((sum, order) => sum + calculateOrderTotal(order.id), 0);
+    validOrders.forEach(order => {
+        const items = orderItems.filter(item => item.orderId === order.id.toString());
+        items.forEach(item => {
+            totalSales += (item.price * item.quantity);
+            totalProfit += ((item.price - (item.costPrice || 0)) * item.quantity);
+        });
+    });
 
     const ordersToday = orders.filter(o => o.createdAt.startsWith(today)).length;
     
@@ -35,13 +39,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems, factor
 
     return {
       totalSales,
+      totalProfit,
       totalOrders: orders.length,
       activeOrders,
       ordersToday,
     };
   }, [orders, orderItems]);
 
-  // Simplified Factory Shortcuts (ONLY items waiting)
   const waitingFactoryItems = useMemo(() => {
     return factoryOrders
       .filter(o => o.status === 'waiting')
@@ -88,18 +92,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems, factor
             <p className="text-xs md:text-sm text-gray-500 mb-1">إجمالي المبيعات</p>
             <p className="text-lg md:text-2xl font-bold text-gray-800 font-mono">{stats.totalSales.toLocaleString()} ج.م</p>
           </div>
-          <div className="p-2 md:p-3 bg-green-100 rounded-full text-green-600 w-fit">
+          <div className="p-2 md:p-3 bg-blue-100 rounded-full text-blue-600 w-fit">
             <DollarSign size={20} className="md:w-6 md:h-6" />
           </div>
         </div>
 
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
-            <p className="text-xs md:text-sm text-gray-500 mb-1">إجمالي الأوردرات</p>
-            <p className="text-lg md:text-2xl font-bold text-gray-800 font-mono">{stats.totalOrders}</p>
+            <p className="text-xs md:text-sm text-gray-500 mb-1">الربح الفعلي</p>
+            <p className="text-lg md:text-2xl font-bold text-emerald-600 font-mono">{stats.totalProfit.toLocaleString()} ج.م</p>
           </div>
-          <div className="p-2 md:p-3 bg-indigo-100 rounded-full text-indigo-600 w-fit">
-            <FileText size={20} className="md:w-6 md:h-6" />
+          <div className="p-2 md:p-3 bg-green-100 rounded-full text-green-600 w-fit">
+            <TrendingUp size={20} className="md:w-6 md:h-6" />
           </div>
         </div>
 
@@ -118,7 +122,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orders, orderItems, factor
             <p className="text-xs md:text-sm text-gray-500 mb-1">أوردرات اليوم</p>
             <p className="text-lg md:text-2xl font-bold text-gray-800 font-mono">{stats.ordersToday}</p>
           </div>
-          <div className="p-2 md:p-3 bg-blue-100 rounded-full text-blue-600 w-fit">
+          <div className="p-2 md:p-3 bg-indigo-100 rounded-full text-indigo-600 w-fit">
             <ShoppingBag size={20} className="md:w-6 md:h-6" />
           </div>
         </div>
